@@ -2,6 +2,9 @@ from __future__ import annotations
 
 import datetime as dt
 import json
+import importlib
+import importlib.util
+import os
 import re
 from dataclasses import dataclass
 from typing import Iterable
@@ -9,6 +12,7 @@ from typing import Iterable
 import mysql.connector
 import requests
 import tomli
+from openai import OpenAI
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import (
     QApplication,
@@ -28,9 +32,9 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-try:
-    from PyQt6.QtWebEngineWidgets import QWebEngineView
-except Exception:  # pragma: no cover
+if importlib.util.find_spec("PyQt6.QtWebEngineWidgets"):
+    QWebEngineView = importlib.import_module("PyQt6.QtWebEngineWidgets").QWebEngineView
+else:
     QWebEngineView = None
 
 
@@ -42,6 +46,7 @@ class Config:
     ai_provider: str
     ai_api_key: str
     ai_model: str
+    ai_base_url: str
 
 
 class Database:
@@ -329,32 +334,64 @@ class YouTubeService:
 
 
 class KeywordAI:
-    def __init__(self, enabled: bool, provider: str, api_key: str, model: str):
+    def __init__(self, enabled: bool, provider: str, api_key: str, model: str, base_url: str):
         self.enabled = enabled
         self.provider = provider
         self.api_key = api_key
         self.model = model
+        self.base_url = base_url
+
+    def _extract_with_openai(self, title: str, description: str) -> list[str]:
+        client = OpenAI(api_key=self.api_key)
+        prompt = (
+            "다음 유튜브 메타 정보에서 IT 관련 핵심 키워드 5개 이내를 JSON 배열 문자열로 반환해줘. "
+            "일반 단어 제외, 검색 가능한 짧은 명사 위주.\n\n"
+            f"제목: {title}\n설명: {description[:1000]}"
+        )
+        res = client.responses.create(
+            model=self.model,
+            input=prompt,
+            max_output_tokens=120,
+        )
+        text = res.output_text.strip()
+        out = json.loads(text)
+        return [str(x) for x in out] if isinstance(out, list) else []
+
+    def _extract_with_github_models(self, title: str, description: str) -> list[str]:
+        token = self.api_key or os.environ.get("GITHUB_TOKEN", "")
+        if not token:
+            return []
+
+        base_url = self.base_url or "https://models.github.ai/inference"
+        client = OpenAI(base_url=base_url, api_key=token)
+        prompt = (
+            "다음 유튜브 메타 정보에서 IT 관련 핵심 키워드 5개 이내를 JSON 배열 문자열로 반환해줘. "
+            "일반 단어 제외, 검색 가능한 짧은 명사 위주.\n\n"
+            f"제목: {title}\n설명: {description[:1000]}"
+        )
+        response = client.chat.completions.create(
+            model=self.model,
+            messages=[
+                {"role": "developer", "content": "항상 JSON 배열 문자열만 응답하세요."},
+                {"role": "user", "content": prompt},
+            ],
+            temperature=0.2,
+        )
+        text = (response.choices[0].message.content or "").strip()
+        out = json.loads(text)
+        return [str(x) for x in out] if isinstance(out, list) else []
 
     def extract(self, title: str, description: str) -> list[str]:
-        if self.enabled and self.provider == "openai" and self.api_key:
+        if self.enabled:
             try:
-                from openai import OpenAI
-
-                cli = OpenAI(api_key=self.api_key)
-                prompt = (
-                    "다음 유튜브 메타 정보에서 IT 관련 핵심 키워드 5개 이내를 JSON 배열 문자열로 반환해줘. "
-                    "일반 단어 제외, 검색 가능한 짧은 명사 위주.\n\n"
-                    f"제목: {title}\n설명: {description[:1000]}"
-                )
-                res = cli.responses.create(
-                    model=self.model,
-                    input=prompt,
-                    max_output_tokens=120,
-                )
-                text = res.output_text.strip()
-                out = json.loads(text)
-                if isinstance(out, list):
-                    return [str(x) for x in out]
+                if self.provider == "github_models":
+                    keywords = self._extract_with_github_models(title, description)
+                elif self.provider == "openai" and self.api_key:
+                    keywords = self._extract_with_openai(title, description)
+                else:
+                    keywords = []
+                if keywords:
+                    return keywords
             except Exception:
                 pass
         text = f"{title} {description}".lower()
@@ -566,9 +603,10 @@ def load_config() -> Config:
         youtube_api_key=raw["youtube"]["api_key"],
         mysql=raw["mysql"],
         ai_enabled=bool(raw.get("ai", {}).get("enabled", False)),
-        ai_provider=raw.get("ai", {}).get("provider", "openai"),
+        ai_provider=raw.get("ai", {}).get("provider", "github_models"),
         ai_api_key=raw.get("ai", {}).get("api_key", ""),
-        ai_model=raw.get("ai", {}).get("model", "gpt-4o-mini"),
+        ai_model=raw.get("ai", {}).get("model", "openai/o4-mini"),
+        ai_base_url=raw.get("ai", {}).get("base_url", "https://models.github.ai/inference"),
     )
 
 
@@ -577,7 +615,7 @@ def main() -> None:
     app = QApplication([])
     db = Database(cfg)
     yt = YouTubeService(cfg.youtube_api_key)
-    ai = KeywordAI(cfg.ai_enabled, cfg.ai_provider, cfg.ai_api_key, cfg.ai_model)
+    ai = KeywordAI(cfg.ai_enabled, cfg.ai_provider, cfg.ai_api_key, cfg.ai_model, cfg.ai_base_url)
     win = MainWindow(db, yt, ai)
     win.show()
     app.exec()

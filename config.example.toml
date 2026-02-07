@@ -10,6 +10,7 @@ database = "itnews"
 
 [ai]
 enabled = true
-provider = "openai"
-api_key = "YOUR_OPENAI_API_KEY"
-model = "gpt-4o-mini"
+provider = "github_models"
+api_key = "" # optional: 비우면 환경변수 GITHUB_TOKEN 사용
+model = "openai/o4-mini"
+base_url = "https://models.github.ai/inference"
