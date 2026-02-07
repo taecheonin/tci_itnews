@@ -6,6 +6,7 @@ import importlib
 import importlib.util
 import os
 import re
+import sys
 from dataclasses import dataclass
 from typing import Iterable
 
@@ -612,7 +613,7 @@ def load_config() -> Config:
 
 def main() -> None:
     cfg = load_config()
-    app = QApplication([])
+    app = QApplication(sys.argv)
     db = Database(cfg)
     yt = YouTubeService(cfg.youtube_api_key)
     ai = KeywordAI(cfg.ai_enabled, cfg.ai_provider, cfg.ai_api_key, cfg.ai_model, cfg.ai_base_url)
