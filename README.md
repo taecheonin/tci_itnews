@@ -89,6 +89,8 @@ crontab -e
 | `tci_core.py` | 공통 백엔드: Config, Database, YouTubeService, KeywordAI, 수집/NEW 분류 |
 | `tci_cron_collect.py` | 크론용 수집 스크립트 (키워드 1개 수집 + NEW 영상 분류) |
 | `templates/index.html` | 메인 화면 (검색·목록·페이지·모달·키워드 관리) |
+| `templates/login.html` | TOTP 로그인 페이지 |
+| `templates/setup.html` | Google Authenticator QR 코드 설정 페이지 |
 | `.env` | 환경 변수 설정 (Git 제외, `.env.example` 참고) |
 | `cron.example.txt` | 크론 등록 예시 |
 
