@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>IT News Collector</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; padding: 12px; background: #1a1a1a; color: #e0e0e0; }
+    h1 { margin: 0 0 12px 0; font-size: 1.25rem; }
+    .top { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 12px; }
+    .top label { margin-right: 4px; }
+    .top input[type="text"], .top select { padding: 6px 10px; border: 1px solid #444; border-radius: 6px; background: #2d2d2d; color: #e0e0e0; }
+    .top button { padding: 6px 14px; border: none; border-radius: 6px; background: #0d6efd; color: #fff; cursor: pointer; }
+    .top button:hover { background: #0b5ed7; }
+    .top button.secondary { background: #495057; }
+    .top button.secondary:hover { background: #3d4348; }
+    .main { display: flex; gap: 16px; flex-wrap: wrap; }
+    .video-section { flex: 1; min-width: 400px; }
+    .video-section table { width: 100%; border-collapse: collapse; background: #2d2d2d; border-radius: 8px; overflow: hidden; }
+    .video-section th, .video-section td { padding: 8px 10px; text-align: left; border-bottom: 1px solid #444; }
+    .video-section th { background: #333; }
+    .video-section tbody tr { cursor: pointer; }
+    .video-section tbody tr:hover { background: #3d3d3d; }
+    .video-section tbody tr.selected { background: #0d6efd33; }
+    .side { width: 260px; }
+    .side section { background: #2d2d2d; border-radius: 8px; padding: 12px; margin-bottom: 12px; }
+    .side section h2 { margin: 0 0 8px 0; font-size: 0.95rem; }
+    .side input[type="text"] { width: 100%; padding: 6px 10px; margin-bottom: 8px; border: 1px solid #444; border-radius: 6px; background: #1a1a1a; color: #e0e0e0; }
+    .side ul { list-style: none; padding: 0; margin: 0; max-height: 200px; overflow-y: auto; }
+    .side ul li { padding: 4px 0; cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
+    .side ul li:hover { color: #6ea8fe; }
+    .side ul li .del { font-size: 0.8rem; color: #dc3545; }
+    .ctrl { display: flex; gap: 8px; margin: 12px 0; flex-wrap: wrap; }
+    .ctrl button { padding: 6px 14px; border: none; border-radius: 6px; background: #495057; color: #fff; cursor: pointer; }
+    .ctrl button:hover { background: #5a6268; }
+    .live { margin: 8px 0; font-size: 0.9rem; color: #6ea8fe; }
+    .player-wrap { margin-top: 12px; border-radius: 8px; overflow: hidden; background: #000; aspect-ratio: 16/9; max-height: 400px; }
+    .player-wrap iframe { width: 100%; height: 100%; border: none; }
+    .msg { margin-top: 8px; font-size: 0.85rem; color: #868e96; }
+    #status-msg { color: #6ea8fe; }
+    .pagination { display: flex; align-items: center; gap: 6px; margin: 12px 0; flex-wrap: wrap; }
+    .pagination a, .pagination span { padding: 6px 12px; border-radius: 6px; text-decoration: none; color: #e0e0e0; background: #2d2d2d; border: 1px solid #444; }
+    .pagination a:hover { background: #3d3d3d; color: #6ea8fe; }
+    .pagination .current { background: #0d6efd; border-color: #0d6efd; }
+    .pagination .ellipsis { border: none; background: transparent; }
+    .pagination-info { margin-right: 12px; font-size: 0.9rem; color: #868e96; }
+    .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.75); z-index: 1000; align-items: center; justify-content: center; padding: 20px; }
+    .modal-overlay.show { display: flex; }
+    .modal-box { background: #2d2d2d; border-radius: 12px; overflow: hidden; max-width: 90vw; max-height: 90vh; width: 900px; display: flex; flex-direction: column; box-shadow: 0 8px 32px rgba(0,0,0,0.5); }
+    .modal-header { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; border-bottom: 1px solid #444; }
+    .modal-header h3 { margin: 0; font-size: 1rem; }
+    .modal-actions { display: flex; gap: 8px; }
+    .modal-actions button { padding: 6px 14px; border: none; border-radius: 6px; cursor: pointer; }
+    .modal-actions .btn-hide { background: #dc3545; color: #fff; }
+    .modal-actions .btn-hide:hover { background: #c82333; }
+    .modal-actions .btn-close { background: #495057; color: #fff; }
+    .modal-actions .btn-close:hover { background: #5a6268; }
+    .modal-body { flex: 1; min-height: 0; aspect-ratio: 16/9; background: #000; }
+    .modal-body iframe { width: 100%; height: 100%; border: none; }
+  </style>
+</head>
+<body>
+  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+    <h1 style="margin:0;">IT News Collector</h1>
+    <a href="{{ url_for('auth_logout') }}" style="padding:6px 14px; border-radius:6px; background:#dc3545; color:#fff; text-decoration:none; font-size:0.85rem;">로그아웃</a>
+  </div>
+  <form class="top" method="get" action="{{ url_for('index') }}" id="form-search">
+    <label>검색</label>
+    <input type="text" name="query" value="{{ query }}" placeholder="제목/태그 검색" list="suggest-list" autocomplete="off">
+    <datalist id="suggest-list">
+      {% for w in suggest_words %}<option value="{{ w }}">{% endfor %}
+    </datalist>
+    <label>상태</label>
+    <select name="status">
+      <option value="" {{ 'selected' if status == '' else '' }}>전체</option>
+      <option value="UNWATCHED" {{ 'selected' if status == 'UNWATCHED' else '' }}>안봄</option>
+      <option value="WATCHING" {{ 'selected' if status == 'WATCHING' else '' }}>시청</option>
+      <option value="WATCHED" {{ 'selected' if status == 'WATCHED' else '' }}>다봄</option>
+    </select>
+    <button type="submit">적용</button>
+    <button type="button" class="secondary" id="btn-refresh">새로고침</button>
+  </form>
+
+  <div class="main">
+    <div class="video-section">
+      <table>
+        <thead>
+          <tr><th>VideoID</th><th>제목</th><th>채널</th><th>게시일</th><th>상태</th></tr>
+        </thead>
+        <tbody>
+          {% for v in videos %}
+          <tr data-video-id="{{ v[0] }}" data-title="{{ v[1] }}">
+            <td>{{ v[0] }}</td>
+            <td>{{ v[1][:50] }}{% if v[1]|length > 50 %}…{% endif %}</td>
+            <td>{{ v[2] }}</td>
+            <td>{{ v[3] }}</td>
+            <td>{{ v[4] }}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="5">수집된 영상이 없습니다. 새로고침을 눌러 수집하세요.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% if total > 0 %}
+      <div class="pagination">
+        <span class="pagination-info">총 {{ total }}건, {{ (page - 1) * per_page + 1 }}-{{ (page - 1) * per_page + videos|length }} / {{ total }}</span>
+        <a href="?query={{ query }}&status={{ status }}&page=1">처음</a>
+        {% if page > 1 %}<a href="?query={{ query }}&status={{ status }}&page={{ page - 1 }}">이전</a>{% endif %}
+        {% for p in range(1, total_pages + 1) %}
+          {% if p == 1 or p == total_pages or (p >= page - 2 and p <= page + 2) %}
+            {% if p == page %}<span class="current">{{ p }}</span>{% else %}<a href="?query={{ query }}&status={{ status }}&page={{ p }}">{{ p }}</a>{% endif %}
+          {% elif p == page - 3 or p == page + 3 %}
+            <span class="ellipsis">…</span>
+          {% endif %}
+        {% endfor %}
+        {% if page < total_pages %}<a href="?query={{ query }}&status={{ status }}&page={{ page + 1 }}">다음</a>{% endif %}
+        <a href="?query={{ query }}&status={{ status }}&page={{ total_pages }}">끝</a>
+      </div>
+      {% endif %}
+      <div class="ctrl">
+        <button type="button" id="btn-unwatched">안봄</button>
+        <button type="button" id="btn-watching">시청</button>
+        <button type="button" id="btn-watched">다봄</button>
+      </div>
+      <div class="live" id="live-label">{% if live_video_id %}라이브 감지됨: {{ live_video_id }}{% else %}라이브: 없음{% endif %}</div>
+      <div class="player-wrap" id="player-wrap">
+        <iframe id="player-iframe" src="{% if live_video_id %}https://www.youtube.com/embed/{{ live_video_id }}?autoplay=0{% else %}about:blank{% endif %}" allowfullscreen allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"></iframe>
+      </div>
+      <p class="msg" id="status-msg"></p>
+    </div>
+    <div class="side">
+      <section>
+        <h2>키워드 관리</h2>
+        <input type="text" id="keyword-input" placeholder="키워드 추가">
+        <button type="button" id="btn-add-kw">키워드 추가</button>
+        <ul id="keyword-list">
+          {% for kw in keywords %}<li data-keyword="{{ kw }}"><span>{{ kw }}</span><span class="del" data-keyword="{{ kw }}">삭제</span></li>{% endfor %}
+        </ul>
+      </section>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="video-modal" aria-hidden="true">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3 id="modal-title">영상 시청</h3>
+        <div class="modal-actions">
+          <button type="button" class="btn-hide" id="modal-btn-hide">숨기기</button>
+          <button type="button" class="btn-close" id="modal-btn-close">닫기</button>
+        </div>
+      </div>
+      <div class="modal-body">
+        <iframe id="modal-iframe" src="about:blank" allowfullscreen allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"></iframe>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const statusMsg = document.getElementById('status-msg');
+    const playerWrap = document.getElementById('player-wrap');
+    const playerIframe = document.getElementById('player-iframe');
+    const videoModal = document.getElementById('video-modal');
+    const modalIframe = document.getElementById('modal-iframe');
+    const modalBtnHide = document.getElementById('modal-btn-hide');
+    const modalBtnClose = document.getElementById('modal-btn-close');
+    let selectedVideoId = null;
+
+    function setStatusMessage(text) {
+      statusMsg.textContent = text;
+    }
+
+    function openVideoModal(videoId, title) {
+      selectedVideoId = videoId;
+      modalIframe.src = 'https://www.youtube.com/embed/' + videoId + '?autoplay=0';
+      document.getElementById('modal-title').textContent = title ? (title.length > 40 ? title.slice(0, 40) + '…' : title) : '영상 시청';
+      videoModal.classList.add('show');
+      videoModal.setAttribute('aria-hidden', 'false');
+    }
+
+    function closeVideoModal() {
+      videoModal.classList.remove('show');
+      videoModal.setAttribute('aria-hidden', 'true');
+      modalIframe.src = 'about:blank';
+      selectedVideoId = null;
+    }
+
+    document.querySelectorAll('.video-section tbody tr[data-video-id]').forEach(tr => {
+      tr.addEventListener('click', () => {
+        const videoId = tr.dataset.videoId;
+        const title = tr.dataset.title || '';
+        if (!videoId) return;
+        document.querySelectorAll('.video-section tbody tr.selected').forEach(r => r.classList.remove('selected'));
+        tr.classList.add('selected');
+        selectedVideoId = videoId;
+        openVideoModal(videoId, title);
+        fetch('/api/videos/' + videoId + '/status', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: 'WATCHING' })
+        }).then(() => {});
+      });
+    });
+
+    modalBtnClose.addEventListener('click', closeVideoModal);
+    modalBtnHide.addEventListener('click', () => {
+      if (!selectedVideoId) return;
+      fetch('/api/videos/' + selectedVideoId + '/hide', { method: 'POST' })
+        .then(() => {
+          closeVideoModal();
+          location.reload();
+        });
+    });
+    videoModal.addEventListener('click', (e) => {
+      if (e.target === videoModal) closeVideoModal();
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && videoModal.classList.contains('show')) closeVideoModal();
+    });
+
+    document.getElementById('btn-refresh').addEventListener('click', () => {
+      setStatusMessage('수집 중입니다. 잠시 후 페이지를 새로고침 하세요.');
+      fetch('/api/refresh', { method: 'POST' })
+        .then(() => setTimeout(() => location.reload(), 8000))
+        .catch(() => setStatusMessage('요청 실패'));
+    });
+
+    function setSelectedStatus(status) {
+      if (!selectedVideoId) {
+        setStatusMessage('영상을 먼저 선택하세요.');
+        return;
+      }
+      fetch('/api/videos/' + selectedVideoId + '/status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status })
+      }).then(() => {
+        setStatusMessage('상태가 변경되었습니다.');
+        setTimeout(() => location.reload(), 600);
+      });
+    }
+    document.getElementById('btn-unwatched').onclick = () => setSelectedStatus('UNWATCHED');
+    document.getElementById('btn-watching').onclick = () => setSelectedStatus('WATCHING');
+    document.getElementById('btn-watched').onclick = () => setSelectedStatus('WATCHED');
+
+    document.getElementById('btn-add-kw').addEventListener('click', () => {
+      const input = document.getElementById('keyword-input');
+      const keyword = (input.value || '').trim().toLowerCase();
+      if (!keyword) return;
+      fetch('/api/keywords', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ keyword })
+      }).then(() => location.reload());
+    });
+    document.getElementById('keyword-input').addEventListener('keydown', e => {
+      if (e.key === 'Enter') document.getElementById('btn-add-kw').click();
+    });
+
+    document.getElementById('keyword-list').addEventListener('click', (e) => {
+      const li = e.target.closest('li[data-keyword]');
+      if (!li) return;
+      if (e.target.classList.contains('del')) return;
+      const kw = li.dataset.keyword;
+      if (!kw) return;
+      const form = document.getElementById('form-search');
+      form.querySelector('input[name="query"]').value = kw;
+      form.submit();
+    });
+
+    document.querySelectorAll('#keyword-list .del').forEach(el => {
+      el.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const kw = el.dataset.keyword;
+        if (!kw) return;
+        fetch('/api/keywords/' + encodeURIComponent(kw), { method: 'DELETE' }).then(() => location.reload());
+      });
+    });
+  </script>
+</body>
+</html>

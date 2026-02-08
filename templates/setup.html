@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TOTP 설정 - IT News Collector</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; background: #1a1a1a; color: #e0e0e0; display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+    .setup-box { background: #2d2d2d; border-radius: 12px; padding: 40px; width: 420px; box-shadow: 0 8px 32px rgba(0,0,0,0.4); text-align: center; }
+    .setup-box h1 { margin: 0 0 8px 0; font-size: 1.25rem; }
+    .setup-box p { margin: 0 0 20px 0; font-size: 0.9rem; color: #868e96; line-height: 1.5; }
+    .qr-wrap { background: #fff; display: inline-block; padding: 16px; border-radius: 8px; margin-bottom: 20px; }
+    .qr-wrap img { display: block; width: 200px; height: 200px; }
+    .secret-box { background: #1a1a1a; border: 1px solid #444; border-radius: 8px; padding: 12px; font-family: monospace; font-size: 0.95rem; letter-spacing: 0.15em; margin-bottom: 20px; word-break: break-all; color: #6ea8fe; }
+    .setup-box .steps { text-align: left; margin: 0 0 20px 0; padding-left: 20px; font-size: 0.85rem; line-height: 1.8; color: #adb5bd; }
+    .btn-login { display: inline-block; padding: 10px 28px; border: none; border-radius: 8px; background: #0d6efd; color: #fff; font-size: 0.95rem; text-decoration: none; cursor: pointer; }
+    .btn-login:hover { background: #0b5ed7; }
+  </style>
+</head>
+<body>
+  <div class="setup-box">
+    <h1>Google Authenticator 설정</h1>
+    <p>{{ app_name }}</p>
+    <div class="qr-wrap">
+      <img src="data:image/png;base64,{{ qr_b64 }}" alt="QR Code">
+    </div>
+    <ol class="steps">
+      <li>Google Authenticator 앱을 엽니다.</li>
+      <li>우측 하단 + 버튼 -> QR 코드 스캔을 누릅니다.</li>
+      <li>위 QR 코드를 스캔합니다.</li>
+      <li>QR 스캔이 안 되면 아래 시크릿 키를 직접 입력합니다.</li>
+    </ol>
+    <p style="font-size:0.8rem; color:#868e96;">수동 입력 시크릿 키:</p>
+    <div class="secret-box">{{ secret }}</div>
+    <a class="btn-login" href="{{ url_for('auth_login') }}">로그인 하러 가기</a>
+  </div>
+</body>
+</html>

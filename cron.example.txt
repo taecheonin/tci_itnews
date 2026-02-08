@@ -1,0 +1,13 @@
+# IT News Collector 수집 크론 예시
+# crontab -e 로 편집 후 아래 한 줄을 추가한 뒤, 경로와 Python 경로를 실제 환경에 맞게 수정하세요.
+
+# 6시간마다 수집 (0시, 6시, 12시, 18시)
+0 */6 * * * cd /path/to/tci_itnews && /path/to/python tci_cron_collect.py >> logs/cron.log 2>&1
+
+# 1시간마다 수집
+# 0 * * * * cd /path/to/tci_itnews && /path/to/python tci_cron_collect.py >> logs/cron.log 2>&1
+
+# 매일 새벽 3시에만 수집
+# 0 3 * * * cd /path/to/tci_itnews && /path/to/python tci_cron_collect.py >> logs/cron.log 2>&1
+
+# 로그 디렉터리 생성: mkdir -p /path/to/tci_itnews/logs
