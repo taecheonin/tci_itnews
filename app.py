@@ -239,4 +239,4 @@ def api_video_hide(video_id):
 
 if __name__ == "__main__":
     _tci_get_services()
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    app.run(host="0.0.0.0", port=5002, debug=False)
