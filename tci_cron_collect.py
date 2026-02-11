@@ -1,5 +1,6 @@
-# 크론탭용 수집 전용 스크립트. 주기적으로 실행해 영상 수집 및 라이브 상태 갱신.
+# 크론탭용 수집 전용 스크립트. 주기적으로 실행해 영상 수집.
 # 사용 예: 0 */6 * * * cd /path/to/tci_itnews && python tci_cron_collect.py >> logs/cron.log 2>&1
+# --reset-due: 모든 키워드의 updated_date를 어제로 되돌려 수집 대상으로 만듦 (최초 1회 또는 이전 버그 복구용)
 from __future__ import annotations
 
 import logging
@@ -36,6 +37,18 @@ def main() -> int:
     try:
         cfg = load_config(_TCI_SCRIPT_DIR)
         db = Database(cfg)
+        if "--reset-due" in sys.argv:
+            cur = db.conn.cursor()
+            cur.execute("UPDATE keywords SET updated_date = CURDATE() - INTERVAL 1 DAY")
+            kw_count = cur.rowcount
+            cur.execute("UPDATE channels SET updated_date = CURDATE() - INTERVAL 1 DAY")
+            ch_count = cur.rowcount
+            cur.close()
+            log.info(
+                "--reset-due: 키워드 %d개, 채널 %d개 updated_date를 어제로 초기화함",
+                kw_count,
+                ch_count,
+            )
         yt = YouTubeService(cfg.youtube_api_key)
         ai = KeywordAI(
             cfg.ai_enabled,

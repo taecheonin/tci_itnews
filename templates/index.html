@@ -28,15 +28,13 @@
     .side section h2 { margin: 0 0 8px 0; font-size: 0.95rem; }
     .side input[type="text"] { width: 100%; padding: 6px 10px; margin-bottom: 8px; border: 1px solid #444; border-radius: 6px; background: #1a1a1a; color: #e0e0e0; }
     .side ul { list-style: none; padding: 0; margin: 0; max-height: 200px; overflow-y: auto; }
-    .side ul li { padding: 4px 0; cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
+    .side ul li { padding: 4px 0; cursor: pointer; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
     .side ul li:hover { color: #6ea8fe; }
     .side ul li .del { font-size: 0.8rem; color: #dc3545; }
+    .side ul li .meta { font-size: 0.75rem; color: #adb5bd; margin-left: auto; }
     .ctrl { display: flex; gap: 8px; margin: 12px 0; flex-wrap: wrap; }
     .ctrl button { padding: 6px 14px; border: none; border-radius: 6px; background: #495057; color: #fff; cursor: pointer; }
     .ctrl button:hover { background: #5a6268; }
-    .live { margin: 8px 0; font-size: 0.9rem; color: #6ea8fe; }
-    .player-wrap { margin-top: 12px; border-radius: 8px; overflow: hidden; background: #000; aspect-ratio: 16/9; max-height: 400px; }
-    .player-wrap iframe { width: 100%; height: 100%; border: none; }
     .msg { margin-top: 8px; font-size: 0.85rem; color: #868e96; }
     #status-msg { color: #6ea8fe; }
     .pagination { display: flex; align-items: center; gap: 6px; margin: 12px 0; flex-wrap: wrap; }
@@ -56,6 +54,9 @@
     .modal-actions .btn-hide:hover { background: #c82333; }
     .modal-actions .btn-close { background: #495057; color: #fff; }
     .modal-actions .btn-close:hover { background: #5a6268; }
+    .modal-tags { display: flex; flex-wrap: wrap; gap: 6px; padding: 12px 16px; border-bottom: 1px solid #444; background: #1f1f1f; }
+    .modal-tags .modal-tag { padding: 4px 10px; border-radius: 999px; background: #343a40; color: #e0e0e0; font-size: 0.8rem; }
+    .modal-tags .modal-tag.empty { background: transparent; color: #868e96; padding: 0; }
     .modal-body { flex: 1; min-height: 0; aspect-ratio: 16/9; background: #000; }
     .modal-body iframe { width: 100%; height: 100%; border: none; }
   </style>
@@ -123,10 +124,6 @@
         <button type="button" id="btn-watching">시청</button>
         <button type="button" id="btn-watched">다봄</button>
       </div>
-      <div class="live" id="live-label">{% if live_video_id %}라이브 감지됨: {{ live_video_id }}{% else %}라이브: 없음{% endif %}</div>
-      <div class="player-wrap" id="player-wrap">
-        <iframe id="player-iframe" src="{% if live_video_id %}https://www.youtube.com/embed/{{ live_video_id }}?autoplay=0{% else %}about:blank{% endif %}" allowfullscreen allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"></iframe>
-      </div>
       <p class="msg" id="status-msg"></p>
     </div>
     <div class="side">
@@ -136,6 +133,20 @@
         <button type="button" id="btn-add-kw">키워드 추가</button>
         <ul id="keyword-list">
           {% for kw in keywords %}<li data-keyword="{{ kw }}"><span>{{ kw }}</span><span class="del" data-keyword="{{ kw }}">삭제</span></li>{% endfor %}
+        </ul>
+      </section>
+      <section>
+        <h2>채널 관리</h2>
+        <input type="text" id="channel-input" placeholder="채널 ID 추가">
+        <button type="button" id="btn-add-channel">채널 추가</button>
+        <ul id="channel-list">
+          {% for ch in channels %}
+          <li data-channel-id="{{ ch[0] }}">
+            <span class="name">{{ ch[1] or ch[0] }}</span>
+            <span class="meta">{{ ch[0] }}</span>
+            <span class="del" data-channel-id="{{ ch[0] }}">삭제</span>
+          </li>
+          {% endfor %}
         </ul>
       </section>
     </div>
@@ -150,6 +161,9 @@
           <button type="button" class="btn-close" id="modal-btn-close">닫기</button>
         </div>
       </div>
+      <div class="modal-tags" id="modal-tags" aria-live="polite">
+        <span class="modal-tag empty">태그 없음</span>
+      </div>
       <div class="modal-body">
         <iframe id="modal-iframe" src="about:blank" allowfullscreen allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"></iframe>
       </div>
@@ -158,16 +172,52 @@
 
   <script>
     const statusMsg = document.getElementById('status-msg');
-    const playerWrap = document.getElementById('player-wrap');
-    const playerIframe = document.getElementById('player-iframe');
     const videoModal = document.getElementById('video-modal');
     const modalIframe = document.getElementById('modal-iframe');
     const modalBtnHide = document.getElementById('modal-btn-hide');
     const modalBtnClose = document.getElementById('modal-btn-close');
+    const modalTags = document.getElementById('modal-tags');
     let selectedVideoId = null;
 
     function setStatusMessage(text) {
       statusMsg.textContent = text;
+    }
+
+    // 모달에 출력할 태그 문구를 구성합니다.
+    function renderTags(content) {
+      if (!modalTags) return;
+      modalTags.innerHTML = '';
+      if (typeof content === 'string') {
+        const span = document.createElement('span');
+        span.className = 'modal-tag empty';
+        span.textContent = content;
+        modalTags.appendChild(span);
+        return;
+      }
+      const tags = Array.isArray(content) ? content : [];
+      if (!tags.length) {
+        const empty = document.createElement('span');
+        empty.className = 'modal-tag empty';
+        empty.textContent = '태그 없음';
+        modalTags.appendChild(empty);
+        return;
+      }
+      tags.forEach(tag => {
+        const chip = document.createElement('span');
+        chip.className = 'modal-tag';
+        chip.textContent = tag;
+        modalTags.appendChild(chip);
+      });
+    }
+
+    // 선택한 영상의 태그를 서버에서 불러옵니다.
+    function loadVideoTags(videoId) {
+      if (!modalTags) return;
+      renderTags('태그 불러오는 중');
+      fetch('/api/videos/' + videoId + '/tags')
+        .then(res => (res.ok ? res.json() : []))
+        .then(tags => renderTags(tags))
+        .catch(() => renderTags('태그를 불러오지 못했습니다'));
     }
 
     function openVideoModal(videoId, title) {
@@ -176,12 +226,14 @@
       document.getElementById('modal-title').textContent = title ? (title.length > 40 ? title.slice(0, 40) + '…' : title) : '영상 시청';
       videoModal.classList.add('show');
       videoModal.setAttribute('aria-hidden', 'false');
+      loadVideoTags(videoId);
     }
 
     function closeVideoModal() {
       videoModal.classList.remove('show');
       videoModal.setAttribute('aria-hidden', 'true');
       modalIframe.src = 'about:blank';
+      renderTags('태그 없음');
       selectedVideoId = null;
     }
 
@@ -275,6 +327,44 @@
         if (!kw) return;
         fetch('/api/keywords/' + encodeURIComponent(kw), { method: 'DELETE' }).then(() => location.reload());
       });
+    });
+
+    const channelInput = document.getElementById('channel-input');
+    const channelAddButton = document.getElementById('btn-add-channel');
+    if (channelAddButton) {
+      channelAddButton.addEventListener('click', () => {
+        const channelId = (channelInput?.value || '').trim();
+        if (!channelId) return;
+        fetch('/api/channels', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ channel_id: channelId })
+        })
+          .then(async (res) => {
+            if (!res.ok) {
+              const body = await res.json().catch(() => ({}));
+              setStatusMessage(body.error || '채널 추가에 실패했습니다.');
+              return;
+            }
+            location.reload();
+          })
+          .catch(() => setStatusMessage('채널 추가 요청 실패'));
+      });
+    }
+    channelInput?.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') channelAddButton?.click();
+    });
+    const channelList = document.getElementById('channel-list');
+    channelList?.addEventListener('click', (e) => {
+      const target = e.target;
+      if (!(target instanceof HTMLElement)) return;
+      if (target.classList.contains('del')) {
+        const cid = target.dataset.channelId;
+        if (!cid) return;
+        fetch('/api/channels/' + encodeURIComponent(cid), { method: 'DELETE' })
+          .then(() => location.reload())
+          .catch(() => setStatusMessage('채널 삭제 요청 실패'));
+      }
     });
   </script>
 </body>
